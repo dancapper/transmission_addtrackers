@@ -27,6 +27,7 @@
 import transmissionrpc
 from syslog import syslog
 import sys
+import os
 import fcntl
 
 ### Set these as you require ###
