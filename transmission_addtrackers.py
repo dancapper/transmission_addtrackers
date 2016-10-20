@@ -31,12 +31,13 @@ import fcntl
 
 ### Set these as you require ###
 
-host = "localhost"     # Transmission host
-port = 9091             # port
+host = "localhost"   # Transmission host
+port = 9091          # port
 user = ""            # auth user
 password = ""        # auth password
-timeout = 30            # timeout to make the connection
-trackersToAdd = [u"http://example.com/announce",u"udp://www.something.com:6969/announce"]
+timeout = 30         # timeout to make the connection
+trackersToAdd = [u"http://example.com/announce",u"udp://www.something.com:6969/announce"] # put your trackers here
+debug = False        # set to true for more syslog
 
 ### Don't edit below this line ###
 
@@ -46,21 +47,24 @@ def lockFile(lockfile):
         fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except IOError:
         return False
-
     return True
 
-if not lockFile("/var/run/lock/{0}.lock".format(__file__)):
+lockfile = "/var/run/lock/{0}.lock".format(os.path.basename(__file__))
+if not lockFile(lockfile):
+        syslog("Could not get lock on {0}".format(lockfile))
         sys.exit(0) # Could not get lock
 
-syslog('Transmission Tracker Add Connecting')
+msgString = "Connecting to Transmission at {0}:{1}".format(host, port)
+print(msgString)        
+if debug: syslog(msgString)
 try:
     tc = transmissionrpc.Client(host, port=port, user=user, password=password, timeout=timeout)
 except transmissionrpc.error.TransmissionError as err:
-    errstring = "Unable to connect, error was: [{0}] - Exiting".format(err)
+    errstring = "Unable to connect to {1}, error was: [{0}] - Exiting".format(err, host)
     syslog(errstring)
     sys.exit(errstring)
 except:
-    errstring = "Unexpected error {0}".format(sys.exc_info()[0])
+    errstring = "Unexpected error {0} connecting to host".format(sys.exc_info()[0])
     syslog(errstring)
     raise
 
@@ -68,23 +72,27 @@ torrents = tc.get_torrents(arguments=["id", "name", "trackers"])
 
 countString = "Total number of Torrents: {0}".format(len(torrents))
 print(countString)
-syslog(countString)
+if debug: syslog(countString)
 
 for torrent in torrents:
     torrentID = getattr(torrent,"id")
     trackers = getattr(torrent,"trackers")
     name = getattr(torrent,"name")
-    print("Torrent id: [{0}] [{2}] has [{1}] trackers".format(torrentID,len(trackers),name))
+    msgstring = "Torrent id: [{0}] [{2}] has [{1}] trackers".format(torrentID,len(trackers),name)
+    print(msgstring)
+    if debug: syslog(msgstring)
     trackersToAddFiltered = list(trackersToAdd)
     for tracker in trackers:
         if tracker[u'announce'] in trackersToAddFiltered:
                 trackersToAddFiltered.remove(tracker[u'announce'])
 
     if len(trackersToAddFiltered) > 0:
-        addString = "Adding {0} trackers to {1}".format(len(trackersToAddFiltered),name)
-        print(addString)
-        syslog(addString)
+        msgString = "Adding {0} trackers to {1}".format(len(trackersToAddFiltered),name)
+        print(msgString)
+        syslog(msgString)
         tc.change_torrent(torrentID, trackerAdd=trackersToAddFiltered)
         torrent.update()
         trackers = getattr(torrent,"trackers")
-        print("Torrent id: [{0}] [{2}] has [{1}] trackers".format(torrentID,len(trackers),name))
+        msgString = "Torrent id: [{0}] [{2}] has [{1}] trackers".format(torrentID,len(trackers),name)
+        print(msgString)
+        if debug: syslog(msgString)
