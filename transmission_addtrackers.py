@@ -38,22 +38,33 @@ user = ""            # auth user
 password = ""        # auth password
 timeout = 30         # timeout to make the connection
 trackersToAdd = [u"http://example.com/announce",u"udp://www.something.com:6969/announce"] # put your trackers here
+
 debug = False        # set to true for more syslog
+lockFilePath = "/var/run/lock" # usually you won't need to change this
 
 ### Don't edit below this line ###
 
-def lockFile(lockfile):
-    fp = open(lockfile, 'w')
+fp = None
+lockfile = "{0}/{1}".format(lockFilePath, os.path.basename(__file__))
+
+def lockFile():
+    global fp, lockfile
+    try:
+        fp = open(lockfile, 'w')
+    except IOError:
+        msgString = "Could not open lockfile {0} - exiting...".format(lockfile)
+        syslog(msgString)
+        sys.exit(msgString) # Unable to open lock
     try:
         fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
     except IOError:
         return False
-    return True
 
-lockfile = "/var/run/lock/{0}.lock".format(os.path.basename(__file__))
-if not lockFile(lockfile):
-        syslog("Could not get lock on {0}".format(lockfile))
-        sys.exit(0) # Could not get lock
+if not lockFile():
+    msgString = "Could not get lock on {0} - process already running?".format(lockfile)
+    syslog(msgString)
+    sys.exit(msgString) # Could not get lock
 
 msgString = "Connecting to Transmission at {0}:{1}".format(host, port)
 print(msgString)        
