@@ -49,7 +49,7 @@ def lockFile(lockfile):
 
     return True
 
-if not lockFile("/var/run/{0}.lock".format(__file__)):
+if not lockFile("/var/run/lock/{0}.lock".format(__file__)):
         sys.exit(0) # Could not get lock
 
 syslog('Transmission Tracker Add Connecting')
