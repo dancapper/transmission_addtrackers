@@ -27,6 +27,7 @@
 import transmissionrpc
 from syslog import syslog
 import sys
+import fcntl
 
 ### Set these as you require ###
 
@@ -38,6 +39,18 @@ timeout = 30            # timeout to make the connection
 trackersToAdd = [u"http://example.com/announce",u"udp://www.something.com:6969/announce"]
 
 ### Don't edit below this line ###
+
+def lockFile(lockfile):
+    fp = open(lockfile, 'w')
+    try:
+        fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        return False
+
+    return True
+
+if not lockFile("/var/run/{0}.lock".format(__file__)):
+        sys.exit(0) # Could not get lock
 
 syslog('Transmission Tracker Add Connecting')
 try:
